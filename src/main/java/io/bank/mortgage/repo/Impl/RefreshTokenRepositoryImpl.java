@@ -54,7 +54,7 @@ public class RefreshTokenRepositoryImpl implements RefreshTokenRepositoryCustom 
                 .map((row, metadata) -> {
                     RefreshToken refreshToken = new RefreshToken();
                     refreshToken.setToken(row.get("token", UUID.class));
-                    refreshToken.setUserId(row.get("user_id", UUID.class));
+                    refreshToken.setUserId(row.get("user_id", Long.class));
                     refreshToken.setExpiresAt(row.get("expires_at", OffsetDateTime.class));
                     refreshToken.setRevoked(row.get("revoked", Boolean.class));
                     refreshToken.setCreatedAt(row.get("created_at", OffsetDateTime.class));

@@ -2,21 +2,43 @@ package io.bank.mortgage.repo.Impl;
 
 import io.bank.mortgage.domain.model.User;
 import io.bank.mortgage.repo.UserRepositoryCustom;
+import io.bank.mortgage.web.AuthenticationController;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
 @Repository
 @RequiredArgsConstructor
 public class UserRepositoryImpl implements UserRepositoryCustom {
-
+    private final PasswordEncoder passwordEncoder;
     private final R2dbcEntityTemplate template;
+    private final UserRepositoryImpl userRepository;
 
+    @Override
+    public Mono<User> save(User user) {
+        return template.insert(user);
+    }
+    @Override
+    public Mono<User> createNewUser(AuthenticationController.RegistrationRequest request) {
+        User newUser = User.builder()
+                .nationalId(request.nationalId())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        return template.insert(newUser)
+                .flatMap(savedUser ->
+                        userRepository.addRole(savedUser.getId(), "APPLICANT")
+                                .thenReturn(savedUser)
+                );
+    }
     @Override
     public Mono<User> findByNationalIdWithRoles(String nationalId) {
         String sql = """

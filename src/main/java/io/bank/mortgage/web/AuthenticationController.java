@@ -2,15 +2,19 @@ package io.bank.mortgage.web;
 
 import io.bank.mortgage.config.JwtTokenProvider;
 import io.bank.mortgage.domain.model.RefreshToken;
+import io.bank.mortgage.domain.model.User;
 import io.bank.mortgage.repo.Impl.RefreshTokenRepositoryImpl;
 import io.bank.mortgage.repo.Impl.UserRepositoryImpl;
 import io.bank.mortgage.service.impl.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,7 +35,30 @@ public class AuthenticationController {
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenRepositoryImpl refreshTokenRepository;
     private final UserRepositoryImpl userRepository;
-    
+
+
+    // ... existing login and refresh methods ...
+
+    @PostMapping("/registration")
+    public Mono<ResponseEntity<Map<String, String>>> register(@RequestBody RegistrationRequest request) {
+        return userRepository.findByNationalIdWithRoles(request.nationalId())
+                .flatMap(existing -> Mono.error(new DuplicateKeyException("National ID already exists")))
+                .switchIfEmpty(Mono.defer(() -> userRepository.createNewUser(request)))
+                .thenReturn(ResponseEntity.ok(Map.of("message", "User registered successfully")))
+                .onErrorResume(e -> {
+                    if (e instanceof DuplicateKeyException) {
+                        return Mono.just(ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(Map.of("error", "National ID already exists")));
+                    }
+                    return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Map.of("error", "Registration failed")));
+                });
+    }
+
+
+
+    public record RegistrationRequest(String nationalId, String password) {}
+
     @PostMapping("/login")
     public Mono<ResponseEntity<Map<String, String>>> login(@RequestBody LoginRequest request) {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
