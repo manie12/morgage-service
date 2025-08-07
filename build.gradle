@@ -1,0 +1,80 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.4'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'io.com.bank.mortgage'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+ext {
+	kafkaVersion = '3.7.0'          // same line as your KRaft container
+}
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-authorization-server'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation "org.springframework.boot:spring-boot-starter-actuator"
+	compileOnly 'org.projectlombok:lombok'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	runtimeOnly 'org.postgresql:postgresql'
+	runtimeOnly 'org.postgresql:r2dbc-postgresql'
+	annotationProcessor 'org.projectlombok:lombok'
+	implementation 'com.fasterxml.jackson.module:jackson-module-parameter-names'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+	implementation("io.jsonwebtoken:jjwt-api:0.11.5")
+	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
+	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5") // or jjwt-gson
+
+	implementation platform("com.fasterxml.jackson:jackson-bom:2.19.0")
+	implementation "com.fasterxml.jackson.core:jackson-databind"
+	implementation "com.fasterxml.jackson.core:jackson-core"
+	implementation "com.fasterxml.jackson.core:jackson-annotations"
+	implementation "org.eclipse:yasson:3.0.4"
+
+	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+	// JJWT API
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+
+	/* ── Observability / docs ──────────────────────────────────────────────── */
+	implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:2.5.0"
+	runtimeOnly   "io.micrometer:micrometer-registry-prometheus"
+
+
+	// JJWT Implementation (runtime)
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+
+	// JJWT Jackson Serialization (runtime)
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+
+	implementation 'org.springframework.kafka:spring-kafka'
+	implementation "org.apache.kafka:kafka-clients:${kafkaVersion}"
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'io.projectreactor:reactor-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
