@@ -9,6 +9,7 @@ import io.bank.mortgage.dto.DecisionRequest;
 import io.bank.mortgage.dto.DocumentMetadata;
 import io.bank.mortgage.dto.NewApplicationCreateRequest;
 import io.bank.mortgage.exception.VersionConflictException;
+import io.bank.mortgage.messaging.MessagingService;
 import io.bank.mortgage.repo.*;
 import io.bank.mortgage.service.ApplicationService;
 import io.bank.mortgage.util.NationalIdService;
@@ -28,14 +29,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Comprehensive Reactive implementation driving the application lifecycle.
- * <p>
- * ✦ Idempotent create (externalRef + applicantUserId)
- * ✦ Stateful transitions with optimistic locking (version column)
- * ✦ RBAC enforcement for APPLICANT vs OFFICER callers (simple param flag)
- * ✦ Event‐sourcing to the Outbox table (snapshot payload)
- */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -47,6 +41,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final OutboxEventRepository outboxRepo;
     private final SharedUtils sharedUtils;
     private final NationalIdService nidService;
+    private final MessagingService messagingService;
     // ===== CREATE ==========================================================
 
     @Transactional
@@ -66,10 +61,10 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .externalRef(req.getExternalRef())
                 .loanAmount(req.getLoanAmount())
                 .currency(req.getCurrency())
-                .income(nvl(req.getIncome()))
-                .liabilities(nvl(req.getLiabilities()))
+                .income(sharedUtils.nvl(req.getIncome()))
+                .liabilities(sharedUtils.nvl(req.getLiabilities()))
                 .propertyAddress(req.getPropertyAddress())
-                .propertyValue(nvl(req.getPropertyValue()))
+                .propertyValue(sharedUtils.nvl(req.getPropertyValue()))
                 .propertyType(req.getPropertyType())
                 .status(Status.SUBMITTED)
                 .nationalIdHash(nidService.hash(req.getNationalId()))
@@ -82,7 +77,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .flatMap(saved -> persistDocs(req.getDocuments(), saved.getId())
                         .collectList()
                         .thenReturn(saved))
-                .flatMap(saved -> emitEvent(saved, EventType.APPLICATION_CREATED, correlationId))
+                .flatMap(saved -> messagingService.publishApplicationEvent(app, EventType.APPLICATION_CREATED, correlationId)
+                        .thenReturn(app))
                 .doOnSuccess(saved -> log.info("Application {} created", saved.getId()));
     }
 
@@ -146,7 +142,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                 })
                 .flatMap(app -> persistDecision(app, dtype, req.getComments(), officerId, officerName)
                         .thenReturn(app))
-                .flatMap(app -> emitEvent(app, EventType.APPLICATION_DECISION_MADE, correlationId));
+                .flatMap(app -> messagingService.publishApplicationEvent(app, EventType.APPLICATION_DECISION_MADE, correlationId)
+                        .thenReturn(app));
     }
 
     private Mono<Decision> persistDecision(Application app,
@@ -165,25 +162,5 @@ public class ApplicationServiceImpl implements ApplicationService {
         return decisionRepo.insert(dec);
     }
 
-    // ===== EVENTING ========================================================
 
-    private Mono<Application> emitEvent(Application snapshot, EventType type, String correlationId) {
-        OutboxEvent evt = OutboxEvent.builder()
-                .id(UUID.randomUUID())
-                .aggregateType("Application")
-                .aggregateId(snapshot.getId())
-                .eventType(type.name())
-                .payload(sharedUtils.toJson(snapshot, true))
-                .headers(sharedUtils.toJson(correlationId, true))
-                .occurredAt(Instant.now())
-                .attempts(0)
-                .build();
-        return outboxRepo.insert(evt).thenReturn(snapshot);
-    }
-
-    // ===== UTIL ===========================================================
-
-    private static BigDecimal nvl(BigDecimal v) {
-        return v == null ? BigDecimal.ZERO : v;
-    }
 }

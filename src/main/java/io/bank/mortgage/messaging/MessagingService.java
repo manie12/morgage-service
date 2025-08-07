@@ -10,6 +10,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -29,26 +30,53 @@ public class MessagingService {
     private final ObjectMapper objectMapper;
 
 
-    public void publishApplicationEvent(Application application, EventType type, String correlationId) {
-        try {
-            String payload = buildEnvelope(application, type, correlationId);
-
-            ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, application.getId().toString(), payload);
-            record.headers().add(KafkaHeaders.CORRELATION_ID, asBytes(correlationId));
-            kafkaTemplate.send(record);
-            log.debug("Published {} to Kafka topic {}", type, TOPIC_NAME);
-
-        } catch (Exception kafkaEx) {
-            log.error("Kafka publish failed – falling back to ActiveMQ. {}", kafkaEx.getMessage());
+    public Mono<Void> publishApplicationEvent(Application application, EventType type, String correlationId) {
+        return Mono.defer(() -> {
             try {
-                jmsTemplate.convertAndSend(TOPIC_NAME, buildEnvelope(application, type, correlationId));
-                log.debug("Published {} to ActiveMQ topic {}", type, TOPIC_NAME);
-            } catch (Exception jmsEx) {
-                log.error("‼️ Failed to publish event to both Kafka and ActiveMQ – event lost", jmsEx);
+                return sendToKafka(application, type, correlationId)
+                        .onErrorResume(ex -> {
+                            log.error("Kafka publish failed – using ActiveMQ fallback", ex);
+                            return sendToActiveMq(application, type, correlationId);
+                        });
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-        }
+        });
     }
 
+    private Mono<Void> sendToKafka(Application app, EventType type, String corr) throws Exception {
+        String json = buildEnvelope(app, type, corr);
+        ProducerRecord<String, String> rec =
+                new ProducerRecord<>(TOPIC_NAME, app.getId().toString(), json);
+        rec.headers().add(KafkaHeaders.CORRELATION_ID, asBytes(corr));
+
+        var future = kafkaTemplate.send(rec); // Now returns CompletableFuture<SendResult<...>>
+
+        return Mono.fromFuture(() -> future.thenAccept(result -> {
+                    if (result != null) {
+                        log.debug("Kafka ✔ topic={} partition={} offset={}",
+                                result.getRecordMetadata().topic(),
+                                result.getRecordMetadata().partition(),
+                                result.getRecordMetadata().offset());
+                    }
+                }))
+                .onErrorResume(ex -> {
+                    log.error("Error sending to Kafka", ex);
+                    return Mono.error(ex);
+                })
+                .then();
+    }
+
+    private Mono<Void> sendToActiveMq(Application app, EventType type, String corr) {
+        return Mono.fromRunnable(() -> {
+            try {
+                jmsTemplate.convertAndSend(TOPIC_NAME, buildEnvelope(app, type, corr));
+                log.debug("ActiveMQ ✔ destination={}", TOPIC_NAME);
+            } catch (Exception jmsEx) {
+                log.error("‼  ActiveMQ fallback failed – event lost", jmsEx);
+            }
+        });
+    }
 
     private String buildEnvelope(Application app, EventType type, String correlationId) throws Exception {
         Map<String, Object> envelope = new HashMap<>();

@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,10 @@ public class SharedUtils {
         this.jsonb = JsonbBuilder.create(config);
     }
 
+    @SneakyThrows
+    public   BigDecimal nvl(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
     // Existing methods
     @SneakyThrows
     public <T> T fromJsonToObject(String json, Class<T> c) {
