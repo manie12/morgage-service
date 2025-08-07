@@ -1,5 +1,6 @@
 package io.bank.mortgage.domain.model;
 
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,26 +18,19 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table("users")
-public class User {
+@Table("refresh_tokens")
+public class RefreshToken {
 
     @Id
-    private Long id;
+    private UUID token;            // primary key
 
-    @Column("national_id")
-    private String nationalId;
+    @Column("user_id")
+    private Long userId;
 
-    @Column("password_hash")
-    private String passwordHash;
+    @Column("expires_at")
+    private OffsetDateTime expiresAt;
 
-    /**
-     * Roles are mapped via the user_roles join table.  This collection is
-     * populated manually or via a custom query; it’s marked @Transient so
-     * Spring Data R2DBC doesn’t expect a column named "roles".
-     */
-    @Transient
-    @Builder.Default
-    private Set<String> roles = Set.of();
+    private Boolean revoked;
 
     @Column("created_at")
     private OffsetDateTime createdAt;

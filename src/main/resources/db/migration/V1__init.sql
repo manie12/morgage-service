@@ -63,3 +63,59 @@ CREATE TABLE outbox_events
     published_at   TIMESTAMPTZ,
     attempts       INT          NOT NULL DEFAULT 0
 );
+
+/* ---------------------------------------------------------------------------
+   V4__auth_tables.sql   –  Normalize roles and add refresh_tokens
+   ---------------------------------------------------------------------------
+   ▸ removes single role column from users
+   ▸ creates roles, user_roles, refresh_tokens
+   ▸ seeds standard roles (APPLICANT, OFFICER)
+   -------------------------------------------------------------------------*/
+-- V3__create_users.sql  (Flyway naming example)
+
+CREATE TABLE users (
+                       id              BIGSERIAL PRIMARY KEY,
+                       national_id     VARCHAR(255) NOT NULL UNIQUE,
+                       password_hash   VARCHAR(255) NOT NULL,
+                       role            VARCHAR(50)  NOT NULL CHECK (role IN ('APPLICANT', 'OFFICER')),
+                       created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- Recommended indexes
+CREATE INDEX idx_users_role          ON users (role);
+CREATE INDEX idx_users_created_at    ON users (created_at DESC);
+/* 1️⃣  drop old single-role column (leave data migration to app/admin) */
+ALTER TABLE users
+DROP COLUMN IF EXISTS role;
+
+/* 2️⃣  roles lookup */
+CREATE TABLE roles (
+                       id   SERIAL PRIMARY KEY,
+                       name VARCHAR(50) UNIQUE NOT NULL            -- APPLICANT, OFFICER
+);
+
+/* seed base RBAC roles */
+INSERT INTO roles (name) VALUES ('APPLICANT'), ('OFFICER')
+    ON CONFLICT DO NOTHING;
+
+/* 3️⃣  association table (many-to-many) */
+CREATE TABLE user_roles (
+                            user_id BIGINT NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+                            role_id INT    NOT NULL REFERENCES roles(id)  ON DELETE CASCADE,
+                            PRIMARY KEY (user_id, role_id)
+);
+
+/* optional helper index for role look-ups */
+CREATE INDEX IF NOT EXISTS idx_user_roles_role ON user_roles(role_id);
+
+/* 4️⃣  persistent refresh tokens */
+CREATE TABLE refresh_tokens (
+                                token       UUID PRIMARY KEY,                -- opaque, random
+                                user_id     BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                expires_at  TIMESTAMPTZ  NOT NULL,
+                                revoked     BOOLEAN      NOT NULL DEFAULT FALSE,
+                                created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens(user_id);
+

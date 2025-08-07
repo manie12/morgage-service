@@ -14,11 +14,14 @@ spring:
     resources-paths: db/migration
     baseline-on-migrate: true
 
-
 jwt:
-  secret: ${JWT_SECRET}             # HS256 signing key
+  secret: ${JWT_SECRET:change-me-256-bit-base64}
   expiration: ${JWT_EXPIRATION:900}     # default 900 seconds (15 min) if not set
-
+  refreshExpiration: 2592000        # 30 days
+security:
+  nationalId:
+    hmacKey: ${SECURITY_NID_HMAC_KEY}
+    encKey: ${SECURITY_NID_ENC_KEY}
 app:
   messaging:
     topic: loan.applications

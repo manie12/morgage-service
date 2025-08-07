@@ -19,9 +19,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Reactive REST controller exposing Application endpoints as designed in the OpenAPI spec.
- */
+
 @RestController
 @RequestMapping(value = "/api/v1/applications", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
@@ -30,9 +28,6 @@ public class ApplicationController {
 
     private final ApplicationService service;
 
-    // ──────────────────────────────────────────────
-    // CREATE
-    // ──────────────────────────────────────────────
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<?>> create(@RequestHeader(value = "Idempotency-Key", required = false) String idemKey,
                                           @RequestBody @Validated NewApplicationCreateRequest body,
@@ -44,9 +39,7 @@ public class ApplicationController {
                         .body(saved));
     }
 
-    // ──────────────────────────────────────────────
-    // READ  (single)
-    // ──────────────────────────────────────────────
+
     @GetMapping("/{id}")
     public Mono<ResponseEntity<?>> get(@PathVariable UUID id, Authentication auth) {
         boolean officer = auth.getAuthorities().stream()
@@ -57,9 +50,6 @@ public class ApplicationController {
                         .body(app));
     }
 
-    // ──────────────────────────────────────────────
-    // LIST / FILTER
-    // ──────────────────────────────────────────────
     @GetMapping
     public Flux<?> list(@RequestParam(required = false) Status status,
                         @RequestParam(required = false) Instant createdFrom,
@@ -72,9 +62,7 @@ public class ApplicationController {
         return service.list(status, createdFrom, createdTo, hash, page, size);
     }
 
-    // ──────────────────────────────────────────────
-    // DECIDE (approve / reject)
-    // ──────────────────────────────────────────────
+
     @PatchMapping(path = "/{id}/decision", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<?>> decide(@PathVariable UUID id,
                                           @RequestBody @Validated DecisionRequest body,
