@@ -30,16 +30,12 @@ public class WebClientFactory {
     private final ServiceEndpointsProperties props;
     private final WebClient.Builder builder;   // autowired default builder
 
-    /**
-     * Local cache so we don't rebuild identical clients.
-     */
     private final ConcurrentHashMap<String, WebClient> cache = new ConcurrentHashMap<>();
 
     public WebClient clientFor(String serviceName) {
         return cache.computeIfAbsent(serviceName, this::buildClient);
     }
 
-    /* ---------- internal ---------- */
 
     private WebClient buildClient(String serviceName) {
         String baseUrl = props.getUrls().get(serviceName);

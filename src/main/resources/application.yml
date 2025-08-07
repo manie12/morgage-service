@@ -9,10 +9,15 @@ spring:
     properties:
       schema: yapa
 
-    migrate:
-      enabled: true
-      resources-paths: db/migration
-      baseline-on-migrate: true
+  migrate:
+    enabled: true
+    resources-paths: db/migration
+    baseline-on-migrate: true
+
+
+jwt:
+  secret: ${JWT_SECRET}             # HS256 signing key
+  expiration: ${JWT_EXPIRATION:900}     # default 900 seconds (15 min) if not set
 
 app:
   messaging:
@@ -20,15 +25,16 @@ app:
   rateLimit:
     applicantRpm: 60
     officerRpm: 300
+
 kafka:
   bootstrap-servers: localhost:9092
   topics:
-    stock.received.v1: stock.received.v1     # inbound receipts
-    stock.reserved.v1: stock.reserved.v1     # reservations placed
-    stock.released.v1: stock.released.v1     # reservations released
-    stock.adjusted.v1: stock.adjusted.v1     # manual adjustments
-    backorder.queued.v1: backorder.queued.v1   # backorder requests
-    backorder.fulfilled.v1: backorder.fulfilled.v1 # backorder fulfillments
+    stock.received.v1: stock.received.v1
+    stock.reserved.v1: stock.reserved.v1
+    stock.released.v1: stock.released.v1
+    stock.adjusted.v1: stock.adjusted.v1
+    backorder.queued.v1: backorder.queued.v1
+    backorder.fulfilled.v1: backorder.fulfilled.v1
   producer:
     client-id: product-service
     acks: all
@@ -49,14 +55,14 @@ management:
         include: health,info,prometheus,metrics
   tracing:
     sampling:
-      probability: 1.0           # sample everything in dev
+      probability: 1.0
   metrics:
     tags:
       application: mortgage-service
   prometheus:
     metrics:
       export:
-        enabled: true            # /actuator/prometheus
+        enabled: true
 
 logging:
   level:

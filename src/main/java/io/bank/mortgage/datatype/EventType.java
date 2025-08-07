@@ -1,0 +1,16 @@
+package io.bank.mortgage.datatype;
+
+public enum EventType {
+    APPLICATION_CREATED,
+
+
+    APPLICATION_STATUS_UPDATED,
+
+    DOCUMENT_UPLOADED,
+
+    APPLICATION_DECISION_MADE,
+
+    APPLICATION_WITHDRAWN,
+
+    APPLICATION_DELETED
+}

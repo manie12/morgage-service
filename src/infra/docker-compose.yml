@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: mortgage-postgres
+    environment:
+      POSTGRES_DB: mortgage
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data          # persist db between restarts
+    ports:
+      - "5433:5432"
+    healthcheck: # lets other services wait for DB ready
+      test: [ "CMD-SHELL", "pg_isready -U mortgage" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  kafka:
+    image: bitnami/kafka:3
+    container_name: mortgage-kafka
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      # Lower default retention for local dev (optional)
+      KAFKA_CFG_LOG_RETENTION_HOURS: 12
+    ports:
+      - "9092:9092"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: mortgage-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8085:8080"
+    depends_on:
+      - kafka
+
+  app:
+    build:
+      context: ..                                # repo root
+      dockerfile: Dockerfile
+    container_name: mortgage-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/mortgage
+      SPRING_R2DBC_USERNAME: mortgage
+      SPRING_R2DBC_PASSWORD: mortgage
+      # Secrets (inject real values in CI or via .env)
+      SECURITY_NID_HMAC_KEY: change-me
+      SECURITY_NID_ENC_KEY: change-me-32-bytes
+      JWT_SECRET: change-me
+      JWT_EXPIRATION: 900
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_started              # start as soon as Kafka container is up
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:                                        # named volume to persist Postgres data

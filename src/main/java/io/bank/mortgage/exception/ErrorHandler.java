@@ -1,4 +1,4 @@
-package io.bank.mortgage.Exception;
+package io.bank.mortgage.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ValidationException;

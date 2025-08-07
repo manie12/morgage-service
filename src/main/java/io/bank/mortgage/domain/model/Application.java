@@ -21,9 +21,7 @@ public class Application {
     @Id
     private UUID id;
 
-    /**
-     * Optimistic locking
-     */
+
     @Version
     private Integer version;
 

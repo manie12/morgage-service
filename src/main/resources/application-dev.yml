@@ -1,1 +1,19 @@
 
+spring:
+  profiles: dev
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+otel:
+  exporter:
+    otlp:
+      endpoint: http://otel-collector:4317
+# ─────────────────────────────────────
+# Security & JWT secrets
+# ─────────────────────────────────────
+security:
+  nationalId:
+    hmacKey: ${SECURITY_NID_HMAC_KEY}   # set via env or Docker secret
+    encKey: ${SECURITY_NID_ENC_KEY}    # 16/24/32-byte AES key
