@@ -1,42 +1,72 @@
 package io.bank.mortgage.messaging;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.bank.mortgage.datatype.EventType;
 import io.bank.mortgage.domain.model.Application;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.jms.core.JmsTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class MessagingService {
 
-    private static final Logger log = LoggerFactory.getLogger(MessagingService.class);
     private static final String TOPIC_NAME = "loan.applications";
 
-    @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final JmsTemplate jmsTemplate;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
-    private JmsTemplate jmsTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    public void publishApplicationEvent(Application application, String eventType) {
+    public void publishApplicationEvent(Application application, EventType type, String correlationId) {
         try {
-            String payload = objectMapper.writeValueAsString(application);
-            log.info("Attempting to publish event to Kafka...");
-            kafkaTemplate.send(TOPIC_NAME, application.getId().toString(), payload);
-        } catch (Exception e) {
-            log.error("Kafka unavailable. Falling back to ActiveMQ. Error: {}", e.getMessage());
+            String payload = buildEnvelope(application, type, correlationId);
+
+            ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, application.getId().toString(), payload);
+            record.headers().add(KafkaHeaders.CORRELATION_ID, asBytes(correlationId));
+            kafkaTemplate.send(record);
+            log.debug("Published {} to Kafka topic {}", type, TOPIC_NAME);
+
+        } catch (Exception kafkaEx) {
+            log.error("Kafka publish failed – falling back to ActiveMQ. {}", kafkaEx.getMessage());
             try {
-                jmsTemplate.convertAndSend(TOPIC_NAME, application);
-            } catch (Exception jmsException) {
-                log.error("Failed to publish event to both Kafka and ActiveMQ. Event may be lost.", jmsException);
+                jmsTemplate.convertAndSend(TOPIC_NAME, buildEnvelope(application, type, correlationId));
+                log.debug("Published {} to ActiveMQ topic {}", type, TOPIC_NAME);
+            } catch (Exception jmsEx) {
+                log.error("‼️ Failed to publish event to both Kafka and ActiveMQ – event lost", jmsEx);
             }
         }
+    }
+
+
+    private String buildEnvelope(Application app, EventType type, String correlationId) throws Exception {
+        Map<String, Object> envelope = new HashMap<>();
+        envelope.put("eventId", UUID.randomUUID());
+        envelope.put("eventType", type.name());
+        envelope.put("eventVersion", 1);
+        envelope.put("occurredAt", Instant.now());
+        envelope.put("correlationId", correlationId);
+        envelope.put("aggregate", Map.of(
+                "type", "Application",
+                "id", app.getId(),
+                "version", app.getVersion()
+        ));
+        envelope.put("payload", app);
+        return objectMapper.writeValueAsString(envelope);
+    }
+
+    private byte[] asBytes(String str) {
+        return str == null ? new byte[0] : str.getBytes();
     }
 }
