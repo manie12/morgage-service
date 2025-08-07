@@ -25,7 +25,7 @@ public class RefreshToken {
     private UUID token;            // primary key
 
     @Column("user_id")
-    private Long userId;
+    private UUID userId;
 
     @Column("expires_at")
     private OffsetDateTime expiresAt;

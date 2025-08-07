@@ -8,6 +8,7 @@ import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Mono;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Repository
@@ -43,5 +44,22 @@ public class RefreshTokenRepositoryImpl implements RefreshTokenRepositoryCustom 
         return template.getDatabaseClient().sql(sql)
                 .fetch().rowsUpdated()
                 .map(Long::intValue);
+    }
+    // Add this method to your RefreshTokenRepositoryImpl class
+    @Override
+    public Mono<RefreshToken> findById(UUID token) {
+        String sql = "SELECT * FROM refresh_tokens WHERE token = $1";
+        return template.getDatabaseClient().sql(sql)
+                .bind(0, token)
+                .map((row, metadata) -> {
+                    RefreshToken refreshToken = new RefreshToken();
+                    refreshToken.setToken(row.get("token", UUID.class));
+                    refreshToken.setUserId(row.get("user_id", UUID.class));
+                    refreshToken.setExpiresAt(row.get("expires_at", OffsetDateTime.class));
+                    refreshToken.setRevoked(row.get("revoked", Boolean.class));
+                    refreshToken.setCreatedAt(row.get("created_at", OffsetDateTime.class));
+                    return refreshToken;
+                })
+                .one();
     }
 }

@@ -12,4 +12,6 @@ public interface UserRepositoryCustom {
     Mono<Void> removeRole(Long userId, String roleName);
 
     Flux<String> rolesOf(Long userId);
+
+    Mono<User> findById(Long userId);
 }

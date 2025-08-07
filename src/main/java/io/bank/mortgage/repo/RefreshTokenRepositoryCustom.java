@@ -11,4 +11,7 @@ public interface RefreshTokenRepositoryCustom {
     Mono<Boolean> revokeToken(UUID token);
 
     Mono<Integer> purgeExpired();
+
+    // Add this method to your RefreshTokenRepositoryImpl class
+    Mono<RefreshToken> findById(UUID token);
 }

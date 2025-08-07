@@ -66,18 +66,17 @@ public class AuthenticationController {
         return refreshTokenRepository.findById(UUID.fromString(request.refreshToken()))
                 .filter(token -> !token.getRevoked() && token.getExpiresAt().isAfter(OffsetDateTime.now()))
                 .flatMap(token -> {
-                    token.setRevoked(true);
                     return refreshTokenRepository.revokeToken(token.getToken())
                             .then(userRepository.findById(token.getUserId()))
                             .flatMap(user -> userRepository.findByNationalIdWithRoles(user.getNationalId()));
                 })
-                .map(user -> {
+                .flatMap(user -> {
                     CustomUserDetails userDetails = new CustomUserDetails(
                             user.getId(),
                             user.getNationalId(),
                             user.getPasswordHash(),
                             user.getRoles().stream()
-                                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                                    .map(role -> new SimpleGrantedAuthority(role)) // Note: roles already have ROLE_ prefix
                                     .collect(Collectors.toList())
                     );
                     
@@ -92,15 +91,14 @@ public class AuthenticationController {
                             .createdAt(OffsetDateTime.now())
                             .build();
                     
-                    refreshTokenRepository.insert(newTokenEntity).subscribe();
-                    
-                    return ResponseEntity.ok(Map.of(
-                            "accessToken", newAccessToken,
-                            "refreshToken", newRefreshToken
-                    ));
+                    return refreshTokenRepository.insert(newTokenEntity)
+                            .thenReturn(ResponseEntity.ok(Map.of(
+                                "accessToken", newAccessToken,
+                                "refreshToken", newRefreshToken
+                        )));
                 })
                 .switchIfEmpty(Mono.just(ResponseEntity.status(401).build()));
-    }
+}
     
     public record LoginRequest(String nationalId, String password) {}
     public record RefreshRequest(String refreshToken) {}

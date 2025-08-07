@@ -4,7 +4,6 @@ import io.bank.mortgage.domain.model.User;
 import io.bank.mortgage.repo.UserRepositoryCustom;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
-import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -110,4 +109,22 @@ public class UserRepositoryImpl implements UserRepositoryCustom {
                     .build();
         }
     }
+    @Override
+    public Mono<User> findById(Long userId) {
+        String sql = """
+            SELECT u.id, u.national_id, u.password_hash, u.created_at
+            FROM users u
+            WHERE u.id = :uid
+            """;
+        return template.getDatabaseClient().sql(sql)
+                .bind("uid", userId)
+                .map((row, meta) -> User.builder()
+                        .id(row.get("id", Long.class))
+                        .nationalId(row.get("national_id", String.class))
+                        .passwordHash(row.get("password_hash", String.class))
+                        .createdAt(row.get("created_at", java.time.OffsetDateTime.class))
+                        .build())
+                .one();
+    }
+
 }

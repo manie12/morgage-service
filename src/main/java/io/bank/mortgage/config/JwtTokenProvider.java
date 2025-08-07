@@ -3,6 +3,7 @@ package io.bank.mortgage.config;
 import io.bank.mortgage.service.impl.CustomUserDetails;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ public class JwtTokenProvider {
     @Value("${jwt.access.expiration}")
     private long accessExpiration;
 
+    @Getter
     @Value("${jwt.refresh.expiration}")
     private long refreshExpiration;
 
@@ -65,4 +67,6 @@ public class JwtTokenProvider {
                 .filter(claims -> claims != null)
                 .onErrorResume(e -> Mono.empty());
     }
+
+
 }
