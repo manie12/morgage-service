@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 7001
 
 spring:
   application:
@@ -86,4 +86,5 @@ logging:
   level:
     root: INFO
     com.bank.mortgage: INFO
+    org.org.springframework.security: DEBUG
     org.flywaydb: DEBUG  # Added for more detailed Flyway logs

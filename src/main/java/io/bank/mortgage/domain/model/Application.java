@@ -23,7 +23,6 @@ public class Application {
     @Id
     private UUID id;
 
-
     @Version
     private Integer version;
 
@@ -32,6 +31,7 @@ public class Application {
 
     @Column("user_id")
     private String userId;
+
     @Column("public_id")
     private String publicId;
 

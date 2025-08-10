@@ -4,6 +4,7 @@ import io.bank.mortgage.config.JwtTokenProvider;
 import io.bank.mortgage.domain.model.RefreshToken;
 import io.bank.mortgage.domain.model.User;
 import io.bank.mortgage.dto.NewApplicationCreateRequest;
+import io.bank.mortgage.dto.RegistrationRequest;
 import io.bank.mortgage.repo.Impl.RefreshTokenRepositoryImpl;
 import io.bank.mortgage.repo.Impl.UserRepositoryImpl;
 import io.bank.mortgage.service.impl.CustomUserDetails;
@@ -49,10 +50,10 @@ public class AuthenticationController {
     // ... existing login and refresh methods ...
 
     @PostMapping("/registration")
-    public Mono<ResponseEntity<Map<String, String>>> register(@RequestBody NewApplicationCreateRequest request) {
+    public Mono<ResponseEntity<Map<String, String>>> register(@RequestBody RegistrationRequest request) {
         return userRepository.findByNationalIdWithRoles(request.getNationalId())
                 .flatMap(existing -> Mono.error(new DuplicateKeyException("National ID already exists")))
-                .switchIfEmpty(Mono.defer(() -> userService.insertUser(request)))
+                .switchIfEmpty(Mono.defer(() -> userRepository.registerUser(request)))
                 .thenReturn(ResponseEntity.ok(Map.of("message", "User registered successfully")))
                 .onErrorResume(e -> {
                     if (e instanceof DuplicateKeyException) {
@@ -68,16 +69,16 @@ public class AuthenticationController {
     @PostMapping("/login")
     public Mono<ResponseEntity<Map<String, String>>> login(@RequestBody LoginRequest request) {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                request.nationalId(), 
+                request.nationalId(),
                 request.password()
         );
-        
+
         return authenticationManager.authenticate(authentication)
                 .map(auth -> (CustomUserDetails) auth.getPrincipal())
                 .flatMap(userDetails -> {
                     String accessToken = tokenProvider.generateAccessToken(userDetails);
                     String refreshToken = tokenProvider.generateRefreshToken();
-                    
+
                     RefreshToken tokenEntity = RefreshToken.builder()
                             .token(UUID.fromString(refreshToken))
                             .userId(userDetails.getUserId())
@@ -85,7 +86,7 @@ public class AuthenticationController {
                             .revoked(false)
                             .createdAt(OffsetDateTime.now())
                             .build();
-                    
+
                     return refreshTokenRepository.insert(tokenEntity)
                             .thenReturn(ResponseEntity.ok(Map.of(
                                     "accessToken", accessToken,
@@ -93,7 +94,7 @@ public class AuthenticationController {
                             )));
                 });
     }
-    
+
     @PostMapping("/refresh")
     public Mono<ResponseEntity<Map<String, String>>> refresh(@RequestBody RefreshRequest request) {
         return refreshTokenRepository.findById(UUID.fromString(request.refreshToken()))
@@ -112,10 +113,10 @@ public class AuthenticationController {
                                     .map(role -> new SimpleGrantedAuthority(role)) // Note: roles already have ROLE_ prefix
                                     .collect(Collectors.toList())
                     );
-                    
+
                     String newAccessToken = tokenProvider.generateAccessToken(userDetails);
                     String newRefreshToken = tokenProvider.generateRefreshToken();
-                    
+
                     RefreshToken newTokenEntity = RefreshToken.builder()
                             .token(UUID.fromString(newRefreshToken))
                             .userId(userDetails.getUserId())
@@ -123,7 +124,7 @@ public class AuthenticationController {
                             .revoked(false)
                             .createdAt(OffsetDateTime.now())
                             .build();
-                    
+
                     return refreshTokenRepository.insert(newTokenEntity)
                             .thenReturn(ResponseEntity.ok(Map.of(
                                 "accessToken", newAccessToken,
@@ -131,8 +132,8 @@ public class AuthenticationController {
                         )));
                 })
                 .switchIfEmpty(Mono.just(ResponseEntity.status(401).build()));
-}
-    
+    }
+
     public record LoginRequest(String nationalId, String password) {}
     public record RefreshRequest(String refreshToken) {}
 }

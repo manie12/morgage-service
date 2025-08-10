@@ -16,16 +16,21 @@ import org.springframework.security.web.server.context.NoOpServerSecurityContext
 
 @Configuration
 @EnableWebFluxSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationWebFilter;
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
 
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationWebFilter, CustomUserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+        this.jwtAuthenticationWebFilter = jwtAuthenticationWebFilter;
+        this.userDetailsService = userDetailsService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
     @Bean
     public ReactiveAuthenticationManager reactiveAuthenticationManager() {
-        UserDetailsRepositoryReactiveAuthenticationManager authManager = 
+        UserDetailsRepositoryReactiveAuthenticationManager authManager =
             new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsService);
         authManager.setPasswordEncoder(passwordEncoder);
         return authManager;

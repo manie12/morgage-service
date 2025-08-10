@@ -8,13 +8,17 @@ import io.bank.mortgage.domain.model.Decision;
 import io.bank.mortgage.domain.model.Document;
 import io.bank.mortgage.domain.model.User;
 import io.bank.mortgage.dto.NewApplicationCreateRequest;
+import io.bank.mortgage.dto.RegistrationRequest;
 import io.bank.mortgage.repo.UserRepositoryCustom;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.OffsetDateTime;
 
 
 import java.util.HashSet;
@@ -31,67 +35,67 @@ public class UserRepositoryImpl implements UserRepositoryCustom {
     private final ApplicationRepositoryImpl applicationRepository;
 
 
-    @Override
-    public Mono<User> insertUser(NewApplicationCreateRequest newApplicationCreateRequest) {
-        User userDto = new User();
-        userDto.setNationalId(newApplicationCreateRequest.getNationalId());
-        userDto.setPasswordHash("$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG"); // bcrypt hashed password
-        userDto.setRoles(Set.of("USER", "ADMIN"));
-
-        return template.insert(userDto)
-                .flatMap(savedUser -> {
-
-                    Mono<Void> addRoleMono = addRole(savedUser.getId(), "APPLICANT");
-
-                    Document document = Document.builder()
-                            .userId(savedUser.getId().toString()) // Converting Long to String as per Document model
-                            .documentStatus(DocumentStatus.PENDING_UPLOAD) // Using enum value instead of String
-                            .checksum("APPLICATION")
-                            .uploadUrl(newApplicationCreateRequest.getExternalRef())
-                            .type("APPLICATION")
-                            .contentType("application/pdf")
-                            .sizeBytes(0L) // Default value
-                            .build();
-                    document.onCreate();
-
-                    Mono<Document> documentMono = documentRepository.insert(document);
-
-                    Decision decision = Decision.builder()
-                            .userId(savedUser.getId().  toString())  // Converting to String as per Decision model
-                            .decisionType(DecisionType.PENDING)    // Assuming PENDING is a valid enum value
-                            .comments("Initial application submission")
-                            .build();
-
-                    decision.onCreate();
-                    Mono<Decision> decisionMono = decisionRepository.insert(decision);
-
-
-                    Application application = Application.builder()
-                            .userId(savedUser.getId().toString())  // Converting to String as per Application model
-                            .externalRef(newApplicationCreateRequest.getExternalRef())
-                            .nationalIdHash(newApplicationCreateRequest.getNationalId()) // Assuming this is a hash
-                            // .nationalIdEnc() - Would need encryption logic to set this
-                            .loanAmount(newApplicationCreateRequest.getLoanAmount())
-                            .currency(newApplicationCreateRequest.getCurrency())
-                            .income(newApplicationCreateRequest.getIncome())
-                            .liabilities(newApplicationCreateRequest.getLiabilities())
-                            .propertyAddress(newApplicationCreateRequest.getPropertyAddress())
-                            .propertyValue(newApplicationCreateRequest.getPropertyValue())
-                            .propertyType(newApplicationCreateRequest.getPropertyType())
-                            .status(Status.UNDER_REVIEW)  // Assuming NEW is a valid enum value in Status
-                            .softDeleted(false)
-                            .version(0)  // Initial version
-                            .build();
-
-                    application.onCreate();
-
-                    Mono<Application> applicationMono = applicationRepository.insert(application);
-
-
-                    return Mono.when(addRoleMono, documentMono, decisionMono, applicationMono)
-                            .thenReturn(savedUser);
-                });
-    }
+//    @Override
+//    public Mono<User> insertUser(NewApplicationCreateRequest newApplicationCreateRequest) {
+//        User userDto = new User();
+//        userDto.setNationalId(newApplicationCreateRequest.getNationalId());
+//        userDto.setPasswordHash("$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG"); // bcrypt hashed password
+//        userDto.setRoles(Set.of("USER", "ADMIN"));
+//
+//        return template.insert(userDto)
+//                .flatMap(savedUser -> {
+//
+//                    Mono<Void> addRoleMono = addRole(savedUser.getId(), "APPLICANT");
+//
+//                    Document document = Document.builder()
+//                            .userId(savedUser.getId().toString()) // Converting Long to String as per Document model
+//                            .documentStatus(DocumentStatus.PENDING_UPLOAD) // Using enum value instead of String
+//                            .checksum("APPLICATION")
+//                            .uploadUrl(newApplicationCreateRequest.getExternalRef())
+//                            .type("APPLICATION")
+//                            .contentType("application/pdf")
+//                            .sizeBytes(0L) // Default value
+//                            .build();
+//                    document.onCreate();
+//
+//                    Mono<Document> documentMono = documentRepository.insert(document);
+//
+//                    Decision decision = Decision.builder()
+//                            .userId(savedUser.getId().  toString())  // Converting to String as per Decision model
+//                            .decisionType(DecisionType.PENDING)    // Assuming PENDING is a valid enum value
+//                            .comments("Initial application submission")
+//                            .build();
+//
+//                    decision.onCreate();
+//                    Mono<Decision> decisionMono = decisionRepository.insert(decision);
+//
+//
+//                    Application application = Application.builder()
+//                            .userId(savedUser.getId().toString())  // Converting to String as per Application model
+//                            .externalRef(newApplicationCreateRequest.getExternalRef())
+//                            .nationalIdHash(newApplicationCreateRequest.getNationalId()) // Assuming this is a hash
+//                            // .nationalIdEnc() - Would need encryption logic to set this
+//                            .loanAmount(newApplicationCreateRequest.getLoanAmount())
+//                            .currency(newApplicationCreateRequest.getCurrency())
+//                            .income(newApplicationCreateRequest.getIncome())
+//                            .liabilities(newApplicationCreateRequest.getLiabilities())
+//                            .propertyAddress(newApplicationCreateRequest.getPropertyAddress())
+//                            .propertyValue(newApplicationCreateRequest.getPropertyValue())
+//                            .propertyType(newApplicationCreateRequest.getPropertyType())
+//                            .status(Status.UNDER_REVIEW)  // Assuming NEW is a valid enum value in Status
+//                            .softDeleted(false)
+//                            .version(0)  // Initial version
+//                            .build();
+//
+//                    application.onCreate();
+//
+//                    Mono<Application> applicationMono = applicationRepository.insert(application);
+//
+//
+//                    return Mono.when(addRoleMono, documentMono, decisionMono, applicationMono)
+//                            .thenReturn(savedUser);
+//                });
+//    }
 
     @Override
     public Mono<User> findByNationalIdWithRoles(String nationalId) {
@@ -170,6 +174,21 @@ public class UserRepositoryImpl implements UserRepositoryCustom {
                         .createdAt(String.valueOf(row.get("created_at", java.time.OffsetDateTime.class)))
                         .build())
                 .one();
+    }
+
+    @Override
+    public Mono<User> registerUser(RegistrationRequest request) {
+        User user = new User();
+        user.setNationalId(request.getNationalId());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRoles(Set.of("ROLE_APPLICANT")); // Set appropriate role with ROLE_ prefix
+
+        return template.insert(user)
+                .flatMap(savedUser -> {
+                    // Add the APPLICANT role to the user_roles table
+                    return addRole(savedUser.getId(), "APPLICANT")
+                            .thenReturn(savedUser);
+                });
     }
 
     /* helpers */
