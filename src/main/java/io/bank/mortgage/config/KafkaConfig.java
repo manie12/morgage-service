@@ -1,4 +1,4 @@
-package io.inventory_service.config;
+package io.bank.mortgage.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -45,7 +45,7 @@ public class KafkaConfig {
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, "inventory-service-group");
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, "mortgage-group");
     props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
     return new DefaultKafkaConsumerFactory<>(props);
   }

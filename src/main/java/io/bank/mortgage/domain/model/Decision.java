@@ -4,12 +4,14 @@ import io.bank.mortgage.datatype.DecisionType;
 import io.bank.mortgage.datatype.Status;
 import jdk.jshell.Snippet;
 import lombok.*;
+import org.apache.kafka.common.protocol.types.Field;
 import org.springframework.data.annotation.*;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -22,8 +24,11 @@ public class Decision {
     @Id
     private UUID id;
 
-    @Column("application_id")
-    private UUID applicationId;
+    @Column("user_id")
+    private String userId;
+
+    @Column("public_id")
+    private String publicId;
 
     private DecisionType decisionType;
 
@@ -36,6 +41,20 @@ public class Decision {
     private String comments;
 
     @CreatedDate
+    @Column("created_at")
+    private String createdAt;
+
+    @LastModifiedDate
     @Column("decided_at")
-    private Instant decidedAt;
+    private String decidedAt;
+
+
+    public void onCreate() {
+        this.publicId = UUID.randomUUID().toString();
+        this.createdAt = String.valueOf(OffsetDateTime.from(Instant.now()));
+    }
+
+    public void onUpdate() {
+        this.decidedAt = String.valueOf(OffsetDateTime.from(Instant.now()));
+    }
 }

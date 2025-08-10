@@ -1,20 +1,21 @@
 package io.bank.mortgage.config;
 
-import io.bank.mortgage.service.impl.CustomUserDetails;
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+
 
 @Component
 @RequiredArgsConstructor
@@ -22,51 +23,46 @@ public class JwtTokenProvider {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
-
-    @Value("${jwt.access.expiration}")
-    private long accessExpiration;
-
+    @Value("${jwt.expiration}")
+    private long accessExpiration;          // seconds
     @Getter
-    @Value("${jwt.refresh.expiration}")
-    private long refreshExpiration;
+    @Value("${jwt.refreshExpiration}")
+    private long refreshExpiration; // seconds
 
-    public SecretKey getSecretKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    private SecretKey getSecretKey() {
+        return io.jsonwebtoken.security.Keys.hmacShaKeyFor(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    public String generateAccessToken(CustomUserDetails userDetails) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", userDetails.getAuthorities());
-        claims.put("userId", userDetails.getUserId());
+    public String generateAccessToken(io.bank.mortgage.service.impl.CustomUserDetails user) {
+        java.util.Map<String, Object> claims = new java.util.HashMap<>();
+        var roles = user.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .toList();
+        claims.put("roles", roles);
+        claims.put("userId", user.getUserId());
 
-        return Jwts.builder()
-                .subject(userDetails.getUsername())
+        long now = System.currentTimeMillis();
+        return io.jsonwebtoken.Jwts.builder()
+                .subject(user.getUsername())
                 .claims(claims)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + accessExpiration))
+                .issuedAt(new java.util.Date(now))
+                .expiration(new java.util.Date(now + accessExpiration * 1000L)) // seconds → ms
                 .signWith(getSecretKey())
                 .compact();
     }
 
     public String generateRefreshToken() {
-        return UUID.randomUUID().toString();
+        return java.util.UUID.randomUUID().toString();
     }
 
-    public Mono<Claims> validateAndParseClaims(String token) {
-        return Mono.fromCallable(() -> {
-                    try {
-                        return Jwts.parser()
-                                .verifyWith(getSecretKey())  // Use verifyWith instead of setSigningKey
+    public reactor.core.publisher.Mono<io.jsonwebtoken.Claims> validateAndParseClaims(String token) {
+        return reactor.core.publisher.Mono.fromCallable(() ->
+                        io.jsonwebtoken.Jwts.parser()
+                                .verifyWith(getSecretKey())
                                 .build()
                                 .parseSignedClaims(token)
-                                .getPayload();
-                    } catch (JwtException e) {
-                        return null;
-                    }
-                })
-                .filter(claims -> claims != null)
-                .onErrorResume(e -> Mono.empty());
+                                .getPayload()
+                )
+                .onErrorResume(e -> reactor.core.publisher.Mono.empty());
     }
-
-
 }

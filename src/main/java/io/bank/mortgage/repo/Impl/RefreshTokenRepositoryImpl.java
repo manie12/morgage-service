@@ -22,12 +22,9 @@ public class RefreshTokenRepositoryImpl implements RefreshTokenRepositoryCustom 
         return template.insert(RefreshToken.class).using(token);
     }
 
-    /**
-     * Soft‑revoke a single token.
-     */
+
     @Override
     public Mono<Boolean> revokeToken(UUID token) {
-        // Using positional parameters ($1) instead of named parameters
         String sql = "UPDATE refresh_tokens SET revoked = TRUE WHERE token = $1";
         return template.getDatabaseClient().sql(sql)
                 .bind(0, token)  // Note: in R2DBC, parameter indexes are 0-based
@@ -35,9 +32,6 @@ public class RefreshTokenRepositoryImpl implements RefreshTokenRepositoryCustom 
                 .map(rows -> rows == 1);
     }
 
-    /**
-     * Hard delete all expired tokens to keep the table small.
-     */
     @Override
     public Mono<Integer> purgeExpired() {
         String sql = "DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = TRUE";

@@ -1,27 +1,39 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: mortgage-service
+  main:
+    allow-bean-definition-overriding: true
+    allow-circular-references: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    schemas: mortgage
+    create-schemas: true
+    default-schema: mortgage
+    url: jdbc:postgresql://localhost:5433/yapa
+    user: postgres
+    password: postgres
 
   r2dbc:
     url: r2dbc:postgresql://localhost:5433/yapa
     username: postgres
     password: postgres
     properties:
-      schema: yapa
-
-  migrate:
-    enabled: true
-    resources-paths: db/migration
-    baseline-on-migrate: true
+      schema: mortgage
 
 jwt:
-  secret: ${JWT_SECRET:change-me-256-bit-base64}
-  expiration: ${JWT_EXPIRATION:900}     # default 900 seconds (15 min) if not set
+  secret: "OG1CZD+2pMM10aG8zkC6WPldo5bW/eru/hECqpKRtRM="
+  expiration: "900"     # default 900 seconds (15 min) if not set
   refreshExpiration: 2592000        # 30 days
 security:
   nationalId:
-    hmacKey: ${SECURITY_NID_HMAC_KEY}
-    encKey: ${SECURITY_NID_ENC_KEY}
+    hmacKey: "aksCLMXOtFf2BbjwvtNYv4WopyWYPBlCNSD8lWo5A48="
+    encKey: "VLZgsnwNxZkAH4qGd/BmIVDGylk7NdBo7nPeokya4EA="
 app:
   messaging:
     topic: loan.applications
@@ -32,12 +44,12 @@ app:
 kafka:
   bootstrap-servers: localhost:9092
   topics:
-    stock.received.v1: stock.received.v1
-    stock.reserved.v1: stock.reserved.v1
-    stock.released.v1: stock.released.v1
-    stock.adjusted.v1: stock.adjusted.v1
-    backorder.queued.v1: backorder.queued.v1
-    backorder.fulfilled.v1: backorder.fulfilled.v1
+    application.created.v1: loan.applications.v1
+    application.status.updated.v1: loan.applications.v1
+    document.uploaded.v1: loan.applications.v1
+    application.decision.made.v1: loan.applications.v1
+    application.withdrawn.v1: loan.applications.v1
+    application.deleted.v1: loan.applications.v1
   producer:
     client-id: product-service
     acks: all
@@ -56,6 +68,9 @@ management:
     web:
       exposure:
         include: health,info,prometheus,metrics
+  health:
+    jms:
+      enabled: false  # Disable JMS health check
   tracing:
     sampling:
       probability: 1.0
@@ -71,3 +86,4 @@ logging:
   level:
     root: INFO
     com.bank.mortgage: INFO
+    org.flywaydb: DEBUG  # Added for more detailed Flyway logs

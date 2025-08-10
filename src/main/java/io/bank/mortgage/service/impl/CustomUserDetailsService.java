@@ -1,25 +1,21 @@
 package io.bank.mortgage.service.impl;
 
 import io.bank.mortgage.domain.model.User;
-import io.bank.mortgage.repo.Impl.UserRepositoryImpl;
-import io.bank.mortgage.web.AuthenticationController;
+import io.bank.mortgage.repo.UserRepository; // <- interface, not Impl
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements ReactiveUserDetailsService {
 
-    private final UserRepositoryImpl userRepository;
+    private final UserRepository userRepository;
 
     @Override
     public Mono<UserDetails> findByUsername(String username) {
@@ -33,10 +29,9 @@ public class CustomUserDetailsService implements ReactiveUserDetailsService {
                 user.getNationalId(),
                 user.getPasswordHash(),
                 user.getRoles().stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                        .map(r -> r.startsWith("ROLE_") ? r : "ROLE_" + r)
+                        .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList())
         );
     }
-
-
 }

@@ -28,10 +28,7 @@ class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
         return template.insert(Application.class).using(app);
     }
 
-    /**
-     * Update the status (and timestamps) using R2dbcEntityTemplate’s fluent Update API,
-     * while enforcing optimistic‑locking on the version column.
-     */
+
     @Override
     public Mono<Boolean> updateStatus(UUID id, Status status, int expectedVersion) {
         int newVersion = expectedVersion + 1;
@@ -60,7 +57,6 @@ class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
         if (createdTo != null) crit = crit.and(Criteria.where("created_at").lessThanOrEquals(createdTo));
         if (nationalIdHash != null) crit = crit.and(Criteria.where("national_id_hash").is(nationalIdHash));
 
-        // If no filters, Criteria.empty() is acceptable; we still apply pagination.
         Query query = Query.query(crit).with(pageable);
         return template.select(query, Application.class);
     }

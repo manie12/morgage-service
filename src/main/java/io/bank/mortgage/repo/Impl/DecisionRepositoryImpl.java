@@ -24,9 +24,6 @@ class DecisionRepositoryImpl implements DecisionRepositoryCustom {
         return template.insert(Decision.class).using(decision);
     }
 
-    /**
-     * Flexible search for decisions of a given application (or all), filtered by type & paginated.
-     */
     @Override
     public Flux<Decision> search(UUID applicationId, DecisionType type, Pageable pageable) {
         Criteria c = Criteria.empty();

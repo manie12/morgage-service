@@ -8,4 +8,5 @@ public interface UserRepository extends
         UserRepositoryCustom {
 
     Mono<User> findByNationalId(String nationalId);
+
 }

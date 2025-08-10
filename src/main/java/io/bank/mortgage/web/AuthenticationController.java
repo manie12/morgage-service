@@ -3,10 +3,12 @@ package io.bank.mortgage.web;
 import io.bank.mortgage.config.JwtTokenProvider;
 import io.bank.mortgage.domain.model.RefreshToken;
 import io.bank.mortgage.domain.model.User;
+import io.bank.mortgage.dto.NewApplicationCreateRequest;
 import io.bank.mortgage.repo.Impl.RefreshTokenRepositoryImpl;
 import io.bank.mortgage.repo.Impl.UserRepositoryImpl;
 import io.bank.mortgage.service.impl.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,22 +30,29 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor
 public class AuthenticationController {
-
     private final ReactiveAuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenRepositoryImpl refreshTokenRepository;
     private final UserRepositoryImpl userRepository;
+    private final UserRepositoryImpl userService;
+
+    public AuthenticationController(ReactiveAuthenticationManager authenticationManager, JwtTokenProvider tokenProvider, RefreshTokenRepositoryImpl refreshTokenRepository, UserRepositoryImpl userRepository, UserRepositoryImpl userService) {
+        this.authenticationManager = authenticationManager;
+        this.tokenProvider = tokenProvider;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.userRepository = userRepository;
+        this.userService = userService;
+    }
 
 
     // ... existing login and refresh methods ...
 
     @PostMapping("/registration")
-    public Mono<ResponseEntity<Map<String, String>>> register(@RequestBody RegistrationRequest request) {
-        return userRepository.findByNationalIdWithRoles(request.nationalId())
+    public Mono<ResponseEntity<Map<String, String>>> register(@RequestBody NewApplicationCreateRequest request) {
+        return userRepository.findByNationalIdWithRoles(request.getNationalId())
                 .flatMap(existing -> Mono.error(new DuplicateKeyException("National ID already exists")))
-                .switchIfEmpty(Mono.defer(() -> userRepository.createNewUser(request)))
+                .switchIfEmpty(Mono.defer(() -> userService.insertUser(request)))
                 .thenReturn(ResponseEntity.ok(Map.of("message", "User registered successfully")))
                 .onErrorResume(e -> {
                     if (e instanceof DuplicateKeyException) {
@@ -55,9 +64,6 @@ public class AuthenticationController {
                 });
     }
 
-
-
-    public record RegistrationRequest(String nationalId, String password) {}
 
     @PostMapping("/login")
     public Mono<ResponseEntity<Map<String, String>>> login(@RequestBody LoginRequest request) {

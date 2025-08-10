@@ -14,6 +14,7 @@ import io.bank.mortgage.repo.*;
 import io.bank.mortgage.service.ApplicationService;
 import io.bank.mortgage.util.NationalIdService;
 import io.bank.mortgage.util.SharedUtils;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.crossstore.ChangeSetPersister;
@@ -32,7 +33,6 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ApplicationServiceImpl implements ApplicationService {
 
     private final ApplicationRepository appRepo;
@@ -42,6 +42,16 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final SharedUtils sharedUtils;
     private final NationalIdService nidService;
     private final MessagingService messagingService;
+
+    public ApplicationServiceImpl(ApplicationRepository appRepo, DocumentRepository docRepo, DecisionRepository decisionRepo, OutboxEventRepository outboxRepo, SharedUtils sharedUtils, NationalIdService nidService, MessagingService messagingService) {
+        this.appRepo = appRepo;
+        this.docRepo = docRepo;
+        this.decisionRepo = decisionRepo;
+        this.outboxRepo = outboxRepo;
+        this.sharedUtils = sharedUtils;
+        this.nidService = nidService;
+        this.messagingService = messagingService;
+    }
     // ===== CREATE ==========================================================
 
     @Transactional
@@ -50,14 +60,14 @@ public class ApplicationServiceImpl implements ApplicationService {
                                     String applicantUserId,
                                     String correlationId) {
         // 1) Idempotency check
-        return appRepo.findFirstByApplicantUserIdAndExternalRef(applicantUserId, req.getExternalRef())
+        return appRepo.findFirstByUserIdAndExternalRef(applicantUserId, req.getExternalRef())
                 .switchIfEmpty(Mono.defer(() -> doCreate(req, applicantUserId, correlationId)));
     }
 
     private Mono<Application> doCreate(NewApplicationCreateRequest req, String applicantUserId, String correlationId) {
         Application app = Application.builder()
                 .id(UUID.randomUUID())
-                .applicantUserId(applicantUserId)
+                .userId(applicantUserId)
                 .externalRef(req.getExternalRef())
                 .loanAmount(req.getLoanAmount())
                 .currency(req.getCurrency())
@@ -69,7 +79,6 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .status(Status.SUBMITTED)
                 .nationalIdHash(nidService.hash(req.getNationalId()))
                 .nationalIdEnc(nidService.encrypt(req.getNationalId()))
-                .submittedAt(Instant.now())
                 .softDeleted(false)
                 .build();
 
@@ -87,7 +96,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         return Flux.fromIterable(docs)
                 .map(meta -> Document.builder()
                         .id(UUID.randomUUID())
-                        .applicationId(appId)
+                        .userId(String.valueOf(appId))
                         .type(meta.getType())
                         .fileName(meta.getFileName())
                         .contentType(meta.getContentType())
@@ -106,7 +115,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         return appRepo.findById(id)
                 .switchIfEmpty(Mono.error(new ChangeSetPersister.NotFoundException()))
                 .flatMap(app -> {
-                    if (!officer && !app.getApplicantUserId().equals(requesterId))
+                    if (!officer && !app.getUserId().equals(requesterId))
                         return Mono.error(new AccessDeniedException("User not authorized to access this application"));
                     return Mono.just(app);
                 });
@@ -153,7 +162,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                                            String officerName) {
         Decision dec = Decision.builder()
                 .id(UUID.randomUUID())
-                .applicationId(app.getId())
+                .userId(String.valueOf(app.getId()))
                 .decisionType(dtype)
                 .comments(comments)
                 .officerUserId(officerId)

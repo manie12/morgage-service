@@ -11,5 +11,5 @@ public interface DocumentRepository extends
         org.springframework.data.repository.reactive.ReactiveCrudRepository<Document, UUID>,
         DocumentRepositoryCustom {
 
-    Flux<Document> findByApplicationId(UUID applicationId);
+    Flux<Document> findByUserId(UUID applicationId);
 }

@@ -28,10 +28,7 @@ class DocumentRepositoryImpl implements DocumentRepositoryCustom {
         return template.insert(Document.class).using(document);
     }
 
-    /**
-     * Update status (and checksum) with optimistic version check via template.update API.
-     * Document table doesn’t have a version column, so we just set fields.
-     */
+
     @Override
     public Mono<Boolean> updateStatus(UUID documentId, DocumentStatus newStatus, String checksum) {
         Update upd = Update.update("status", newStatus.name())

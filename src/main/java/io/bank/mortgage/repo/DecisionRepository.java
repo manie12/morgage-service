@@ -17,7 +17,7 @@ public interface DecisionRepository extends
         org.springframework.data.repository.reactive.ReactiveCrudRepository<Decision, UUID>,
         DecisionRepositoryCustom {
 
-  Flux<Decision> findByApplicationIdOrderByDecidedAtDesc(UUID applicationId);
+  Flux<Decision> findByUserIdOrderByDecidedAtDesc(UUID applicationId);
 
-  Mono<Decision> findTop1ByApplicationIdOrderByDecidedAtDesc(UUID applicationId);
+  Mono<Decision> findTop1ByUserIdOrderByDecidedAtDesc(UUID applicationId);
 }

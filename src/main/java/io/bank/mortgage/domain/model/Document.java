@@ -1,4 +1,5 @@
 package io.bank.mortgage.domain.model;
+
 import io.bank.mortgage.datatype.DocumentStatus;
 import io.bank.mortgage.datatype.Status;
 import jdk.jshell.Snippet;
@@ -9,6 +10,7 @@ import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -21,8 +23,11 @@ public class Document {
     @Id
     private UUID id;
 
-    @Column("application_id")
-    private UUID applicationId;
+    @Column("user_id")
+    private String userId;
+
+    @Column("public_id")
+    private String publicId;
 
     private String type;
 
@@ -44,9 +49,20 @@ public class Document {
 
     @CreatedDate
     @Column("created_at")
-    private Instant createdAt;
+    private String createdAt;
 
     @LastModifiedDate
     @Column("updated_at")
-    private Instant updatedAt;
+    private String updatedAt;
+
+
+    public void onCreate() {
+        this.publicId = UUID.randomUUID().toString();
+        this.createdAt = String.valueOf(OffsetDateTime.from(Instant.now()));
+    }
+
+    public void onUpdate() {
+        this.updatedAt = String.valueOf(OffsetDateTime.from(Instant.now()));
+    }
+
 }

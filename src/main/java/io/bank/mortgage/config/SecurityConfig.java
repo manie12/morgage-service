@@ -1,5 +1,6 @@
 package io.bank.mortgage.config;
 
+import io.bank.mortgage.service.impl.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,8 +10,6 @@ import org.springframework.security.authentication.UserDetailsRepositoryReactive
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
@@ -20,8 +19,17 @@ import org.springframework.security.web.server.context.NoOpServerSecurityContext
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final ReactiveUserDetailsService userDetailsService;
+    private final JwtAuthenticationFilter jwtAuthenticationWebFilter;
+    private final CustomUserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
+
+    @Bean
+    public ReactiveAuthenticationManager reactiveAuthenticationManager() {
+        UserDetailsRepositoryReactiveAuthenticationManager authManager = 
+            new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsService);
+        authManager.setPasswordEncoder(passwordEncoder);
+        return authManager;
+    }
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
@@ -30,25 +38,17 @@ public class SecurityConfig {
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
-                .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh", "/api/auth/registration"  // Add this line
-                        ).permitAll()
+                .authorizeExchange(ex -> ex
+                        .pathMatchers(HttpMethod.POST,
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                "/api/auth/registration").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/v1/applications").hasRole("APPLICANT")
+                        .pathMatchers(HttpMethod.GET,  "/api/v1/applications/**").hasAnyRole("APPLICANT","OFFICER")
+                        .pathMatchers(HttpMethod.PATCH,"/api/v1/applications/*/decision").hasRole("OFFICER")
                         .anyExchange().authenticated()
                 )
-                .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
+                .addFilterAt(jwtAuthenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)
                 .build();
-    }
-
-    @Bean
-    public ReactiveAuthenticationManager authenticationManager() {
-        UserDetailsRepositoryReactiveAuthenticationManager manager =
-                new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsService);
-        manager.setPasswordEncoder(passwordEncoder());
-        return manager;
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 }

@@ -1,4 +1,4 @@
-package io.com.bank.mortgage.mortgage_service;
+package io.bank.mortgage;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

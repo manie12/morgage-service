@@ -12,12 +12,12 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Base64;
 
 /**
  * Utility for hashing (deterministic) and encrypting (non-deterministic) national IDs.
  */
 @Component
-@RequiredArgsConstructor
 public class NationalIdService {
 
     private final byte[] hmacKey;
@@ -48,7 +48,7 @@ public class NationalIdService {
     /**
      * AES-GCM encryption (IV || cipherText || tag) for secure storage
      */
-    public byte[] encrypt(String id) {
+    public String encrypt(String id) {
         try {
             byte[] iv = new byte[12];
             new SecureRandom().nextBytes(iv);
@@ -58,7 +58,8 @@ public class NationalIdService {
             byte[] combined = new byte[iv.length + cipherText.length];
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(cipherText, 0, combined, iv.length, cipherText.length);
-            return combined;
+            // Convert to Base64 string for storage
+            return Base64.getEncoder().encodeToString(combined);
         } catch (Exception e) {
             throw new IllegalStateException("Encryption failure", e);
         }

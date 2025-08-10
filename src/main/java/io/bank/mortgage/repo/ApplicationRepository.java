@@ -11,5 +11,5 @@ public interface ApplicationRepository extends
         ApplicationRepositoryCustom {
 
   /** Idempotency helper – lookup by same user + external reference. */
-  Mono<Application> findFirstByApplicantUserIdAndExternalRef(String applicantUserId, String externalRef);
+  Mono<Application> findFirstByUserIdAndExternalRef(String applicantUserId, String externalRef);
 }
