@@ -15,7 +15,16 @@ The service uses:
 - R2DBC for reactive database access
 - PostgreSQL for data storage
 - Kafka for event messaging
-- JWT for authentication
+- JWT for authentication and authorization
+
+### Key Features
+
+- Reactive programming model for high throughput and scalability
+- JWT-based authentication with refresh token support
+- Role-based access control (APPLICANT and OFFICER roles)
+- Idempotent API operations
+- Optimistic concurrency control with ETag/If-Match headers
+- Event-driven architecture with Kafka messaging
 
 ## Prerequisites
 
@@ -59,16 +68,35 @@ This will start:
 docker-compose -f infra/docker-compose.yml up -d
 ```
 
-The application will be available at http://localhost:8080
+The application will be available at http://localhost:7001
 
 ## API Endpoints
 
-### Authentication
+The Mortgage Service provides the following RESTful API endpoints:
+
+### Authentication Endpoints
+
+| Method | Endpoint | Description | Access | Request Body | Response |
+|--------|----------|-------------|--------|-------------|----------|
+| POST | `/api/auth/registration` | Register a new user | Public | Registration details | Success message |
+| POST | `/api/auth/login` | Authenticate and get tokens | Public | Credentials | Access and refresh tokens |
+| POST | `/api/auth/refresh` | Refresh access token | Public | Refresh token | New access and refresh tokens |
+
+### Application Endpoints
+
+| Method | Endpoint | Description | Access | Request Body/Params | Response |
+|--------|----------|-------------|--------|-------------|----------|
+| POST | `/api/v1/applications` | Create a new application | ROLE_APPLICANT | Application details | Created application |
+| GET | `/api/v1/applications/{id}` | Get application by ID | ROLE_APPLICANT, ROLE_OFFICER | - | Application details |
+| GET | `/api/v1/applications` | List applications | ROLE_APPLICANT, ROLE_OFFICER | Query params for filtering | List of applications |
+| PATCH | `/api/v1/applications/{id}/decision` | Make decision on application | ROLE_OFFICER | Decision details | Updated application |
+
+### Authentication Examples
 
 #### Register a new user
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/registration \
+curl -X POST http://localhost:7001/api/auth/registration \
   -H "Content-Type: application/json" \
   -d '{
     "nationalId": "123456789",
@@ -82,7 +110,7 @@ curl -X POST http://localhost:8080/api/auth/registration \
 #### Login
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:7001/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "nationalId": "123456789",
@@ -101,19 +129,19 @@ Response:
 #### Refresh Token
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/refresh \
+curl -X POST http://localhost:7001/api/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{
     "refreshToken": "550e8400-e29b-41d4-a716-446655440000"
   }'
 ```
 
-### Mortgage Applications
+### Application Examples
 
 #### Create a new application
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/applications \
+curl -X POST http://localhost:7001/api/v1/applications \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Idempotency-Key: unique-request-id" \
@@ -124,28 +152,41 @@ curl -X POST http://localhost:8080/api/v1/applications \
     "email": "john.doe@example.com",
     "propertyValue": 500000,
     "loanAmount": 400000,
-    "term": 30
+    "term": 30,
+    "currency": "USD",
+    "income": 120000,
+    "liabilities": 50000,
+    "propertyAddress": "123 Main St, Anytown, USA",
+    "propertyType": "SINGLE_FAMILY"
   }'
 ```
 
 #### Get an application by ID
 
 ```bash
-curl -X GET http://localhost:8080/api/v1/applications/550e8400-e29b-41d4-a716-446655440000 \
+curl -X GET http://localhost:7001/api/v1/applications/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 #### List applications
 
 ```bash
-curl -X GET "http://localhost:8080/api/v1/applications?status=PENDING&page=0&size=20" \
+curl -X GET "http://localhost:7001/api/v1/applications?status=UNDER_REVIEW&page=0&size=20" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
+
+Available query parameters:
+- `status`: Filter by application status (e.g., UNDER_REVIEW, APPROVED, REJECTED)
+- `createdFrom`: Filter by creation date (ISO format)
+- `createdTo`: Filter by creation date (ISO format)
+- `nationalId`: Filter by national ID
+- `page`: Page number (default: 0)
+- `size`: Page size (default: 20)
 
 #### Make a decision on an application
 
 ```bash
-curl -X PATCH http://localhost:8080/api/v1/applications/550e8400-e29b-41d4-a716-446655440000/decision \
+curl -X PATCH http://localhost:7001/api/v1/applications/550e8400-e29b-41d4-a716-446655440000/decision \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "If-Match: 1" \
@@ -159,8 +200,10 @@ curl -X PATCH http://localhost:8080/api/v1/applications/550e8400-e29b-41d4-a716-
 
 1. Register a user with `/api/auth/registration`
 2. Login with `/api/auth/login` to get an access token and refresh token
-3. Use the access token in the `Authorization` header for all API requests
+3. Use the access token in the `Authorization` header for all API requests (format: `Bearer YOUR_ACCESS_TOKEN`)
 4. When the access token expires, use the refresh token with `/api/auth/refresh` to get a new access token
+
+Note: By default, access tokens expire after 15 minutes, and refresh tokens expire after 30 days.
 
 ## Development
 
